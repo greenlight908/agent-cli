@@ -24,14 +24,16 @@ from agent_cli import (
 )
 
 
-def _tool(**kwargs) -> tuple[argparse.ArgumentParser, argparse._SubParsersAction]:
+def _tool(**kwargs: object) -> tuple[argparse.ArgumentParser, argparse._SubParsersAction]:
     parser, sub = build_parser("/tmp/widget_cli.py", description="Widget tool", **kwargs)
     sub.add_parser("list", help="List widgets")
     return parser, sub
 
 
 class TestBareInvocation:
-    def test_prints_full_help_to_stdout_and_exits_zero(self, capsys) -> None:
+    def test_prints_full_help_to_stdout_and_exits_zero(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         parser, _ = _tool()
 
         with pytest.raises(SystemExit) as exit_info:
@@ -68,7 +70,7 @@ class TestBareInvocation:
 
 
 class TestVersion:
-    def test_carries_the_on_disk_path(self, capsys) -> None:
+    def test_carries_the_on_disk_path(self, capsys: pytest.CaptureFixture[str]) -> None:
         parser, _ = _tool()
 
         with pytest.raises(SystemExit):
@@ -76,7 +78,7 @@ class TestVersion:
 
         assert "/tmp/widget_cli.py" in capsys.readouterr().out
 
-    def test_carries_provenance_when_given(self, capsys) -> None:
+    def test_carries_provenance_when_given(self, capsys: pytest.CaptureFixture[str]) -> None:
         parser, _ = _tool(provenance="a1b2c3d")
 
         with pytest.raises(SystemExit):
@@ -84,7 +86,9 @@ class TestVersion:
 
         assert "a1b2c3d" in capsys.readouterr().out
 
-    def test_omits_provenance_rather_than_inventing_unknown(self, capsys) -> None:
+    def test_omits_provenance_rather_than_inventing_unknown(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """A tool that never had provenance and one whose provenance could not be
         read must not look identical."""
         parser, _ = _tool()
@@ -94,7 +98,7 @@ class TestVersion:
 
         assert "unknown" not in capsys.readouterr().out.lower()
 
-    def test_is_printed_verbatim_not_wrapped(self, capsys) -> None:
+    def test_is_printed_verbatim_not_wrapped(self, capsys: pytest.CaptureFixture[str]) -> None:
         """argparse's built-in version action wraps to terminal width, which breaks
         a long path across lines — unparseable for the machine caller."""
         parser = argparse.ArgumentParser(prog="x")
@@ -107,7 +111,9 @@ class TestVersion:
         out = capsys.readouterr().out
         assert out.count("\n") == 1, "version was wrapped across lines"
 
-    def test_a_percent_in_the_path_does_not_break_the_output(self, capsys) -> None:
+    def test_a_percent_in_the_path_does_not_break_the_output(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         parser = argparse.ArgumentParser(prog="x")
         add_version_argument(parser, "/tmp/100%_cli.py")
 
@@ -118,7 +124,9 @@ class TestVersion:
 
 
 class TestErrorsAreJsonToo:
-    def test_die_writes_json_to_stdout_and_exits_nonzero(self, capsys) -> None:
+    def test_die_writes_json_to_stdout_and_exits_nonzero(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         with pytest.raises(SystemExit) as exit_info:
             die("nope", hint="try list")
 
@@ -128,7 +136,9 @@ class TestErrorsAreJsonToo:
         assert payload == {"error": "nope", "hint": "try list"}
         assert captured.err == "", "a caller doing json.loads(stdout) must not need a second parser"
 
-    def test_wrap_main_turns_an_unhandled_exception_into_json(self, capsys) -> None:
+    def test_wrap_main_turns_an_unhandled_exception_into_json(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         def boom() -> int:
             raise RuntimeError("kaboom")
 
@@ -138,9 +148,13 @@ class TestErrorsAreJsonToo:
         assert exit_info.value.code == 1
         payload = json.loads(capsys.readouterr().out)
         assert payload["error"] == "kaboom"
-        assert "RuntimeError" in payload["traceback"], "dropped the traceback, so the failure is undebuggable"
+        assert "RuntimeError" in payload["traceback"], (
+            "dropped the traceback, so the failure is undebuggable"
+        )
 
-    def test_wrap_main_names_the_exception_type_when_there_is_no_message(self, capsys) -> None:
+    def test_wrap_main_names_the_exception_type_when_there_is_no_message(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         def boom() -> int:
             raise ValueError
 
@@ -186,9 +200,7 @@ def test_the_package_is_dependency_free() -> None:
     this. A stray import would break that silently, so it is pinned."""
     import agent_cli
 
-    source = (
-        __import__("pathlib").Path(agent_cli.__file__).read_text(encoding="utf-8")
-    )
+    source = __import__("pathlib").Path(agent_cli.__file__).read_text(encoding="utf-8")
     for line in source.splitlines():
         if line.startswith(("import ", "from ")) and "agent_cli" not in line:
             module = line.split()[1].split(".")[0]

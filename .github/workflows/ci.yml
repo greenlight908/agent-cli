@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Pinned to immutable digests, not tags: a tag is mutable, so the
+      # maintainer — or whoever takes their account — can repoint it and the new
+      # code runs on the next build with no PR, no diff, no notification
+      # (tj-actions/changed-files, 2025-03).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --dev
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run pytest -q
+
+  # The package's whole reason to exist is that a one-file PEP-723 script can
+  # depend on it. Asserted against the REAL published URL from a clean runner,
+  # because `uv sync --dev` above resolves the local checkout and would stay
+  # green even if the published artefact were unusable.
+  consume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          python-version: "3.11"
+      - name: A bare invocation prints help to stdout and exits 0
+        run: |
+          set -euo pipefail
+          cat > /tmp/demo_cli.py <<'PY'
+          # /// script
+          # requires-python = ">=3.11"
+          # dependencies = ["agent-cli @ git+https://github.com/greenlight908/agent-cli.git@${{ github.sha }}"]
+          # ///
+          from agent_cli import build_parser, parse_args_or_help, wrap_main
+
+
+          def main() -> int:
+              parser, sub = build_parser(__file__, description="CI consumer check")
+              sub.add_parser("ping")
+              args = parse_args_or_help(parser)
+              if args.command == "ping":
+                  print('{"ok": true}')
+              return 0
+
+
+          if __name__ == "__main__":
+              wrap_main(main)
+          PY
+          uv run /tmp/demo_cli.py > /tmp/bare.out
+          test -s /tmp/bare.out || { echo "::error::bare invocation printed nothing to stdout"; exit 1; }
+          grep -q "usage:" /tmp/bare.out || { echo "::error::stdout was not help"; exit 1; }
+          uv run /tmp/demo_cli.py ping | grep -q '"ok": true'

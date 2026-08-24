@@ -129,7 +129,7 @@ def build_parser(
     *,
     description: str | None = None,
     provenance: str | None = None,
-    **kwargs: Any,
+    **kwargs: Any,  # noqa: ANN401 — passed straight through to ArgumentParser
 ) -> tuple[argparse.ArgumentParser, argparse._SubParsersAction]:
     """Build a subcommand tool's top-level parser + subparsers, uniformly.
 
@@ -145,9 +145,7 @@ def build_parser(
     check moves into :func:`parse_args_or_help`, which sits before the client's
     dispatch and so works with if/elif, ``args.func``, or a dict.
     """
-    parser = argparse.ArgumentParser(
-        prog=Path(source_file).name, description=description, **kwargs
-    )
+    parser = argparse.ArgumentParser(prog=Path(source_file).name, description=description, **kwargs)
     add_version_argument(parser, source_file, provenance=provenance)
     subparsers = parser.add_subparsers(dest="command")
     return parser, subparsers
@@ -171,7 +169,7 @@ def parse_args_or_help(
     return args
 
 
-def die(message: str, **extra: Any) -> NoReturn:
+def die(message: str, **extra: Any) -> NoReturn:  # noqa: ANN401 — arbitrary JSON-serialisable context is the point
     """Fail as JSON on STDOUT with a non-zero exit.
 
     "I couldn't" must parse the way success does: a caller doing
