@@ -18,14 +18,22 @@ jobs:
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           python-version: "3.11"
-      - run: uv sync --dev
+      # `--locked` ASSERTS the lockfile is current and fails loud if it drifted.
+      # The neighbouring flags are traps: `--frozen` installs a drifted lock
+      # SILENTLY, and a bare `uv sync` rewrites it, hiding staleness behind a green.
+      - run: uv sync --dev --locked
       - run: uv run ruff check
       - run: uv run ruff format --check
+      # Over ALL the Python, src/ and tests/ alike — a gate that skips half the
+      # repo is a gate with a hole in it. Config alone is not a gate; only an
+      # actual invocation counts, which is why this step exists as well as the
+      # pre-commit hook.
+      - run: uv run pyright
       - run: uv run pytest -q
 
   # The package's whole reason to exist is that a one-file PEP-723 script can
   # depend on it. Asserted against the REAL published URL from a clean runner,
-  # because `uv sync --dev` above resolves the local checkout and would stay
+  # because `uv sync --dev --locked` above resolves the local checkout and would stay
   # green even if the published artefact were unusable.
   consume:
     runs-on: ubuntu-latest

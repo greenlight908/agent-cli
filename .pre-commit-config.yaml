@@ -1,0 +1,41 @@
+# The fast half of each gate. CI runs the same checks and is authoritative —
+# pre-commit is bypassable (`--no-verify`) and simply absent on a fresh clone,
+# while CI is slow. Each covers the other's blind spot, so both run ruff AND
+# pyright; neither alone is the gate.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-ast
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  # This rev MUST equal the ruff version uv.lock resolves (0.16.4). Renovate bumps
+  # the lock but not this rev, and the two then run different ruff versions —
+  # a release that corrupted `except (A, B):` shipped through exactly that gap
+  # (mike.dotfiles#949). Guarded estate-wide by the `47-ruff-pin-drift` check.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.4
+    hooks:
+      - id: ruff-check
+      - id: ruff-format
+
+  # Local, not the mirror: pyright must typecheck against THIS project's
+  # dependency group (pytest's stubs among them), which an isolated pre-commit
+  # env does not have. `uv run` resolves the same environment CI uses.
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: uv run pyright
+        language: system
+        types: [python]
+        # The whole project every time, not the changed files: pyright's answer
+        # for one file depends on the others, so a file-scoped run can go green
+        # on a change that breaks a module it does not see.
+        pass_filenames: false

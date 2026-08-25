@@ -25,7 +25,46 @@ packages = ["src/agent_cli"]
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "ANN", "A"]
+# The first eleven are the estate Ruff Baseline FLOOR. Its one machine-readable
+# copy is BASELINE_SELECT in the `21-ruff-baseline` WND check — this list must stay
+# a superset of it. `ANN` and `A` are this repo's own additions: the floor is a
+# floor, not a ceiling, and adding rules never trips the gate.
+#
+# `BLE` is on because the code already carried a justified `# noqa: BLE001` at the
+# one place a blind `except Exception` is correct — the catch-all boundary in
+# wrap_main. The rule was never selected, so that directive was dead: enabling it
+# makes the annotation mean what its author intended, rather than deleting it.
+select = [
+    "A",
+    "ANN",
+    "B",
+    "BLE",
+    "C4",
+    "E",
+    "F",
+    "I",
+    "PERF101",
+    "PERF401",
+    "RUF",
+    "S",
+    "SIM",
+    "UP",
+]
+ignore = [
+    "E501",   # line length — not a concern here
+    "S101",   # assert — legitimate for solo-deploy invariants, and this repo is mostly tests
+    "S108",   # /tmp/ usage — fine for solo deploy
+    "S603",   # subprocess without shell=True — we control the inputs
+    "S607",   # partial executable path — we control the environment
+]
+
+[tool.pyright]
+# Every Python file, not just src/: `tests/` is half this repo's Python, and a gate
+# that skips it is a gate with a hole in it. No `ignore` burn-down list — the repo
+# is small enough to land clean, and an empty quarantine is the only kind that
+# cannot silently grow.
+include = ["src", "tests"]
+pythonVersion = "3.11"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "pyright>=1.1.380"]
