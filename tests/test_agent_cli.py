@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from typing import Any
 
 import pytest
 
@@ -24,7 +25,9 @@ from agent_cli import (
 )
 
 
-def _tool(**kwargs: object) -> tuple[argparse.ArgumentParser, argparse._SubParsersAction]:
+def _tool(
+    **kwargs: Any,  # noqa: ANN401 — a passthrough, matching build_parser's own signature
+) -> tuple[argparse.ArgumentParser, argparse._SubParsersAction]:
     parser, sub = build_parser("/tmp/widget_cli.py", description="Widget tool", **kwargs)
     sub.add_parser("list", help="List widgets")
     return parser, sub
@@ -48,7 +51,7 @@ class TestBareInvocation:
     def test_the_subparser_is_not_required(self) -> None:
         """The whole trick. `required=True` is what makes argparse exit 2 to stderr,
         so leaving it off is what lets the bare call reach the help path at all."""
-        parser, sub = _tool()
+        _parser, sub = _tool()
 
         assert sub.required is False
 
